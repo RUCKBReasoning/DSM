@@ -18,8 +18,8 @@ def collate(batch):
 
 #subgraph similarity
 def relevance(index, mode, input_dir, k_shot):
-    testGraphEmb = np.load('./wholeDCIemb/WQTestSubGraph_emb1024.npy')
-    trainGraphEmb = np.load('./wholeDCIemb/WQTrainSubGraph_emb1024.npy')
+    testGraphEmb = np.load('./wholeSubgraphEmb/WQTestSubGraph_CL_20_emb1024.npy')
+    trainGraphEmb = np.load('./wholeSubgraphEmb/WQTrainSubGraph_CL_20_emb1024.npy')
     if mode =='train':
         query_re = trainGraphEmb[index]
         query_re = query_re[np.newaxis, :]
