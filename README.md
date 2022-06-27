@@ -15,7 +15,7 @@ $ pip install -r requirements.txt
 ```
 ### 2. Dataset
 * WQ : `dataset/` contains the files for WQ dataset. 
-* PQ : `dataset/` contains the files for WQ dataset. 
+* PQ : `dataset/` contains the files for PQ dataset. 
 
 ## How to run 
 (1) Prepare dataset for training retriever.
