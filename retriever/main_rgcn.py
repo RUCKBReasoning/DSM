@@ -6,8 +6,9 @@ import numpy as np
 from sklearn import metrics
 import random
 
-from util import load_data
-from gcl import GCL
+import dgl
+from util import load_RGCNdata
+from rgcn_gcl import RGCN_GCL
 import sys
 import os
 import pickle
@@ -23,25 +24,25 @@ def setup_seed(seed):
 
 def preprocess_neighbors_sumavepool(edge_index, nb_nodes, device):
     adj_idx = edge_index
-     
+
     self_loop_edge = torch.LongTensor([range(nb_nodes), range(nb_nodes)])
     adj_idx = torch.cat([adj_idx, self_loop_edge], 1)
         
     adj_elem = torch.ones(adj_idx.shape[1])
 
     adj = torch.sparse.FloatTensor(adj_idx, adj_elem, torch.Size([nb_nodes, nb_nodes]))
+    return adj
 
-    return adj.to(device)
 def main():
     parser = argparse.ArgumentParser(description='PyTorch graph convolutional neural net')
     parser.add_argument('--dataset', type=str, default="WQTrainGraph",
-                        help='name of dataset (default: WQTrainGraph/WQTestGraph)')
-    parser.add_argument('--device', type=int, default=0,
+                        help='name of dataset (default: WQTrainGraph_0/WQTestGraph_0)')
+    parser.add_argument('--device', type=int, default= 0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 100)')
     parser.add_argument('--num_layers', type=int, default=1,
-                        help='number of layers (default: 2)')
+                        help='number of layers (default: 1)')
     parser.add_argument('--num_mlp_layers', type=int, default=2,
                         help='number of layers for MLP EXCLUDING the input one (default: 2). 1 means linear model.')
     parser.add_argument('--hidden_dim', type=int, default=1024,
@@ -61,26 +62,29 @@ def main():
     setup_seed(0)
     
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
- 
+      
     # Data loading
-    edge_index, feats, nb_nodes = load_data(args.dataset)
+    edge_index, r, num_rels, feats, nb_nodes = load_RGCNdata(args.dataset)    
     input_dim = feats.shape[1]
     # the shuffled features are used to contruct the negative samples
     idx = np.random.permutation(nb_nodes)
-    shuf_feats = feats[idx, :]   
-    model = GCL(args.num_layers, args.num_mlp_layers, input_dim, args.hidden_dim, args.neighbor_pooling_type, device).to(device)   
-    optimizer_train = optim.Adam(model.parameters(), lr=args.lr)  
+    shuf_feats = feats[idx, :]
+
+    model = RGCN_GCL(num_rels, input_dim, args.hidden_dim, device).to(device)
+    optimizer_train = optim.Adam(model.parameters(), lr=args.lr)
 
     batch_size = 1
     lbl_1 = torch.ones(batch_size, nb_nodes)
     lbl_2 = torch.zeros(batch_size, nb_nodes)
     lbl = torch.cat((lbl_1, lbl_2), 1).to(device)
 
-    adj = preprocess_neighbors_sumavepool(torch.LongTensor(edge_index), nb_nodes, device)
+    # adj = preprocess_neighbors_sumavepool(torch.LongTensor(edge_index), nb_nodes, device)
+    adj = dgl.graph((edge_index[0], edge_index[1])).to(device)
+    r = torch.LongTensor(r).to(device)
     feats = torch.FloatTensor(feats).to(device)
     shuf_feats = torch.FloatTensor(shuf_feats).to(device)
 
-    with open('./data/train_StructureSimilar_WQ_Path.pt', 'rb') as f:
+    with open('./train_StructureSimilar_WQ_Path.pt', 'rb') as f:
         pathDict = pickle.load(f) # pathDict[index][0] is the index's top-20 the most similar subgraph's id. it is a list
     train_nodeSet = np.load('./data/WQTrainGraphNodeSet.npy', allow_pickle=True)
     cnt_wait = 0
@@ -88,17 +92,18 @@ def main():
     best_t = 1
     patience = 15
 
-    # training
+    # Training
     model.train()
     for epoch in range(1, args.epochs + 1):
-        loss_pretrain = model(feats, adj, train_nodeSet, pathDict, args.batchsize)               
+        loss_pretrain = model(feats, adj, r, train_nodeSet, pathDict, args.batchsize)               
         print("loss:", loss_pretrain.item())
-             
+        
         if loss_pretrain.item() < best:
             best = loss_pretrain.item()
             best_t = epoch
             cnt_wait = 0
-            torch.save(model.state_dict(), './best_WQ_param.pt', _use_new_zipfile_serialization = False) 
+            #save model 
+            torch.save(model.state_dict(), './WQ_best_rgcn_param_20.pt', _use_new_zipfile_serialization = False) 
         else:
             cnt_wait +=1
         
@@ -112,9 +117,9 @@ def main():
             optimizer_train.step()
 
     #load model 
-    model.load_state_dict(torch.load('./best_WQ_param.pt')) 
+    model.load_state_dict(torch.load('./WQ_best_rgcn_param_20.pt')) 
     emb = model.get_emb(feats, adj)
-    print('training done!')
+    print('Training done!')
 
     # calculate subgraph embedding
     train_nodeSet = np.load('./data/WQTrainGraphNodeSet.npy', allow_pickle=True)
@@ -122,7 +127,7 @@ def main():
     for index in train_nodeSet:    
         trainSubGraphEmd.append(np.mean(emd[index], axis = 0))
 
-    np.save('./wholeSubgraphEmb/WQTrainSubGraph_CL_20_emb1024', np.array(trainSubGraphEmd))
-    
+    np.save('./wholeSubgraphEmb/WQTrainSubGraph_rgcn_emb1024', np.array(trainSubGraphEmd))
+
 if __name__ == '__main__':
     main()
