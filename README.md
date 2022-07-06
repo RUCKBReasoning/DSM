@@ -48,13 +48,13 @@ $ python retriever/main_ged.py
 ``
  $ python retriever/relation_path.py
 ``
-3. Prepare dataset and create learning tasks for DSM.
+3. Prepare dataset for DSM and process dataset for creating learning tasks .
 * Prepare dataset for DSM:   
 
   ```
   $ python preprocess.py -input_dir dataset/WQ --output_dir './output_WQ' --model_name_or_path 'facebook/bart-base'
   ```
-* Create learning tasks for DSM:  
+* Process dataset to create learning tasks:  
 
   ``dataset.py`` is used to process dataset to create learning tasks.
 4. To run the DSM, execute (Note: we take the GCL-based retriever as an example, and other retrievers are similar.):
