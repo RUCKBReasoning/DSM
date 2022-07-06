@@ -51,9 +51,9 @@ $ python retriever/main_ged.py
 3. Prepare dataset and create learning tasks for DSM.
 * Prepare dataset for DSM:   
 
-  ``
+  ```
   $ python preprocess.py -input_dir dataset/WQ --output_dir './output_WQ' --model_name_or_path 'facebook/bart-base'
-  ``
+  ```
 * Create learning tasks for DSM:  
 
   ``dataset.py`` is used to process dataset to create learning tasks.
