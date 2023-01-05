@@ -49,7 +49,7 @@ class Meta(nn.Module):
         self.tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
        
         self.net = model_class.from_pretrained(args.model_name_or_path)  
-        # load WQ pretrained model
+        # load WQ pretrained model, param_bart_base_best.pt is the finetuned best model on WQ, it is optional. 
         self.net.load_state_dict(torch.load('./param_bart_base_best.pt')) 
 
         self.net = torch.nn.DataParallel(self.net, device_ids = [0, 1, 2])
@@ -126,8 +126,7 @@ class Meta(nn.Module):
             if i!=0:
                 self.net.module.load_state_dict(torch.load('./param_3.pt'))
                 
-            # 1. run the i-th task and compute loss for k=0
-          
+                   
             # this is the loss and accuracy before first update
             with torch.no_grad():
                 # [setsz, nway]
@@ -265,14 +264,14 @@ class Meta(nn.Module):
         
         querysz = x_qry.size(0)
         predList = []
-        # corrects = [0 for _ in range(self.update_step_test + 1)]
+        
         corrects_1 = [0 for _ in range(self.update_step_test + 1)]
         corrects_2 = [0 for _ in range(self.update_step_test + 1)]
         corrects_3 = [0 for _ in range(self.update_step_test + 1)]
         corrects_4 = [0 for _ in range(self.update_step_test + 1)]
         corrects_r = [0 for _ in range(self.update_step_test + 1)] 
         loss_list = [0 for _ in range(self.update_step_test)]
-        # in order to not ruin the state of running_mean/variance and bn_weight/bias
+        
         # we finetunning on the copied model instead of self.net
         net = deepcopy(self.net)
         up_optimizer = optim.Adam(net.parameters(), lr = self.update_lr)              
@@ -287,9 +286,7 @@ class Meta(nn.Module):
             corrects_r[0] = corrects_r[0] + bleu[4]
             predList.append(pred)
         net.train()     
-        # this is the loss and accuracy after the first update
-        # with torch.no_grad():
-            # net.named_parameters() = fast_weights
+        
         pad_token_id = self.tokenizer.pad_token_id
         source_ids, source_mask, y = x_spt[0][0],x_spt[0][1],x_spt[0][2]
         y_ids = y[:, :-1].contiguous()
@@ -332,7 +329,7 @@ class Meta(nn.Module):
                 "decoder_input_ids": y_ids,
                 "labels": lm_labels,
             }
-            # net.named_parameters = fast_weights
+            
             outputs = net(**inputs)
             loss = outputs[0]            
             up_optimizer.zero_grad()
@@ -340,9 +337,9 @@ class Meta(nn.Module):
             up_optimizer.step()
             loss_list[k] = loss_list[k] + loss.mean().item()
             with torch.no_grad():
-                # [setsz]
+                
                 bleu, pred = self.test(net, self.tokenizer, x_qry[0], query_index[0])
-                # corrects[k+1] = corrects[k+1] + bleu
+                
                 corrects_1[k+1] = corrects_1[k+1] + bleu[0]
                 corrects_2[k+1] = corrects_2[k+1] + bleu[1]
                 corrects_3[k+1] = corrects_3[k+1] + bleu[2]
@@ -376,8 +373,7 @@ class Meta(nn.Module):
         loss_list = np.array(loss_list)
         return  bleu_1, bleu_2, bleu_3, bleu_4, rouge_l, loss_list, predMaxQ
      def test(self, model, tokenizer, data, query_index):
-        # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        # model = model.to(self.device)
+                
         model = model.module.to(self.device)
         model.eval()
         with torch.no_grad():
@@ -428,7 +424,7 @@ class Meta(nn.Module):
         rouge = Rouge()
         re_pred = pred_new
         rouge_score = rouge.get_scores(pred_new, ground_new)
-        r_score = rouge_score[0]['rouge-l']['r'] #召回率
+        r_score = rouge_score[0]['rouge-l']['r'] 
         r_score = round(r_score*100,4)
 
         
