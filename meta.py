@@ -44,8 +44,7 @@ class Meta(nn.Module):
         self.epoch = args.epoch
         self.max_grad_norm = args.max_grad_norm
         self.model_name_or_path = args.model_name_or_path
-        #self.net is  base model, our model is bart, rewrite there
-        # self.net = Learner(config, args.imgc, args.imgsz)
+        
         model_class, tokenizer_class = (BartForConditionalGeneration, BartTokenizer)
         self.tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
        
